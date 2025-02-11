@@ -18,7 +18,7 @@
 
 ## Updates
 - [x] Init Repo - 2025/02/10
-- [ ] Support for video
+- [x] Support for video - 2025/02/11
 
 ## Features
 ### What does AniLines do?
@@ -78,6 +78,9 @@ python infer.py --dir_in ./input --dir_out ./output --mode detail --binarize -1 
 
 You can either pass a single image or a folder to `dir_in`, the extracted lineart will be saved to the `output` folder by default.
 
+### Video support
+AniLines also supports video processing! When a video file is provided, it will generate a video of the extracted lineart.
+
 ### Binarized output
 Binarized lines are often used in animation production. AniLines provides an API for this feature. By default, binarization is disabled (set to `-1`). You can enable binarization by setting the `--binarize` parameter to any value between 0 and 1. This will adjust the threshold for binarizing the output.
 | input | no binarize | binarize 0.5 | binarize 0.95 |
@@ -91,9 +94,25 @@ By default, AniLines uses `fp16` to accelerate inference, trading marginal perfo
 
 For further accleration, you can play with **TensorRT**/**TorchTRT** with **onnx** to achieve its maximum potential speed.
 
+## Gallery
+Here are some more examples of AniLines inference results. AniLines is basically designed to work for cel animation images, but it does maintain an acceptable transferability to other types of images, like illustrations or flat color without clear edges. This gallery will be updated with more examples in the future.
+
+| input | detail mode |
+| --- | --- |
+| ![Input](./assets/imgs/gallery/input/input1.jpg) | ![Detail](./assets/imgs/gallery/detail/detail1.jpg) |
+| ![Input](./assets/imgs/gallery/input/input2.jpg) | ![Detail](./assets/imgs/gallery/detail/detail2.jpg) |
+| ![Input](./assets/imgs/gallery/input/input3.jpg) | ![Detail](./assets/imgs/gallery/detail/detail3.jpg) |
+| ![Input](./assets/imgs/gallery/input/input4.jpg) | ![Detail](./assets/imgs/gallery/detail/detail4.jpg) |
+
+*©[YuZhu](https://github.com/UNKNOWNTIMER)*
+
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+Special thanks to [Shuhong](https://github.com/ShuhongChen) for his advice in this project.
+
 
 ## Citation
 Feel free to cite this work if you find it useful for your research:

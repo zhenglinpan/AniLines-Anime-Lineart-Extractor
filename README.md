@@ -3,7 +3,7 @@
 ![Teaser](./assets/gifs/teaser.gif)
 *©Oniichan wa Oshimai!*
 
-⭐ **AniLines** is a simple tool to extract lineart from anime images. 
+⭐ **AniLines** is a simple tool to extract lineart from anime images and videos.
 
 ## Contents
 - [Features](#features)

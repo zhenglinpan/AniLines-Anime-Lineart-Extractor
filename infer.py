@@ -16,7 +16,7 @@ def is_file(path):
 
 def is_image(path):
     fname = os.path.basename(path)
-    return os.path.splitext(fname)[1].lower() in ['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.avif']
+    return os.path.splitext(fname)[1].lower() in ['.png', '.jpg', '.jpeg', '.bmp', '.webp', '.avif', '.tga']
 
 def is_video(path):
     fname = os.path.basename(path)
@@ -47,7 +47,8 @@ def load_model(args):
 def process_image(path_in, path_out, **kwargs):
     img = cv2.cvtColor(np.array(Image.open(path_in)), cv2.COLOR_RGB2BGR)
     img = inference(img, **kwargs)
-    return cv2.imwrite(path_out, img)
+    img = Image.fromarray(img)
+    return img.save(path_out)
 
 def process_video(path_in, path_out, **kwargs):
     video = cv2.VideoCapture(path_in)

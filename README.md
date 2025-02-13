@@ -11,9 +11,11 @@
   - [Environment](#environment)
   - [Binarized output](#Binarization)
   - [Inference acceleration](#inference-acceleration)
-- [License](#license)
-- [Citation](#citation)
+- [Gallery](#gallery)
 - [Related Works](#related-works)
+- [Acknowledgements](#acknowledgements)
+- [Citation](#citation)
+- [License](#license)
 
 
 ## Updates
@@ -107,8 +109,15 @@ Here are some more examples of AniLines inference results. AniLines is basically
 *©[YuZhu](https://github.com/UNKNOWNTIMER)*
 
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Related works
+Here are some other anime line extraction projects that you might find interesting:
+- [MangaLineExtraction](https://github.com/ljsabc/MangaLineExtraction_PyTorch)
+- [Anime2Sketch](https://github.com/Mukosame/Anime2Sketch)
+- [LineDistiller](https://github.com/hepesu/LineDistiller)
+- [sketchKeras](https://github.com/lllyasviel/sketchKeras)
+- [DoG(with fine-tuned hyperparameters)](https://github.com/ShuhongChen/eisai-anime-interpolator/blob/f0e216cce18b99d10a0e60d465565afd302f1de7/_util/sketchers_v1.py#L45)
+- [sketch-extraction-of-anime-character](https://github.com/joejoe2/sketch-extraction-of-anime-character)
+
 
 ## Acknowledgements
 Special thanks to [Shuhong](https://github.com/ShuhongChen) for his advice in this project.
@@ -126,3 +135,7 @@ Feel free to cite this work if you find it useful for your research:
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/zhenglinpan/AniLines-Anime-Line-Extractor}}
 }
+```
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -129,7 +129,7 @@ def main():
         elif is_video(filename):
             process_video(path_in, path_out, model=model, args=args)
         else:
-            raise ValueError('Unsupported file type')
+            raise ValueError(f'Unsupported file: {filename}')
         
 if __name__ == '__main__':
     main()

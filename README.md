@@ -11,9 +11,8 @@
 - [Features](#features)
 - [How to use](#how-to-use)
   - [Environment](#environment)
-  - [Binarized output](#Binarization)
+  - [Run Inference](#run-inference)
   - [Inference acceleration](#inference-acceleration)
-  - [Gradio UI](#gradio-ui)
 - [Gallery](#gallery)
 - [Related Works](#related-works)
 - [Acknowledgements](#acknowledgements)
@@ -73,11 +72,15 @@ conda activate anilines
 pip install -r requirements.txt
 ```
 
-Download the pre-trained models from the links below and put them in the `./weights` folder:
+Then, download the pre-trained models from the links below and put them in the `./weights` folder
 - [Basic model](https://drive.google.com/file/d/14Bp8mbQAbiR1rQrEsFp-uNdOou8hoCFr/view?usp=sharing)
 - [Detail model](https://drive.google.com/file/d/12U1Mwlonoipk2Yvr12mNaFB30foy420o/view?usp=sharing)
 
-and then run the following command:
+### Run inference
+
+There are two ways to use AniLines: 
+
+👉 **1. Command line**
 
 ```bash
 python infer.py --dir_in ./input --dir_out ./output --mode detail --binarize -1 --fp16 True --device cuda:0
@@ -85,8 +88,22 @@ python infer.py --dir_in ./input --dir_out ./output --mode detail --binarize -1 
 
 You can either pass a single image or a folder to `dir_in`, the extracted lineart will be saved to the `output` folder by default.
 
+👉 **2. Gradio UI**
+
+An gradio interface for AniLines is available!
+
+![Gradio UI](./assets/imgs/gradio/gradio.jpg)
+
+Here is a demo on [🤗HuggingFace Space](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Line-Extractor). 
+
+Compared with the demo, local UI allows you to process video and batch files, and presumably faster if you have better machines. It is much recommended to run locally with your gpu machine, you can simply run the following command to start the UI locally:
+
+```bash
+python app.py
+```
+
 ### Video support
-AniLines also supports video processing! When a video file is provided, it will generate a video of the extracted lineart.
+AniLines supports video processing. When a video file is provided, it will generate a video of the extracted lineart.
 
 ### Binarized output
 Binarized lines are often used in animation production. AniLines provides an API for this feature. By default, binarization is disabled (set to `-1`). You can enable binarization by setting the `--binarize` parameter to any value between 0 and 1. This will adjust the threshold for binarizing the output.
@@ -95,21 +112,6 @@ Binarized lines are often used in animation production. AniLines provides an API
 | ![Input](./assets/imgs/binarize/input.jpg) | ![No Binarize](./assets/imgs/binarize/no_binary.jpg) | ![Binarize 0.5](./assets/imgs/binarize/binary_50.jpg) | ![Binarize 0.95](./assets/imgs/binarize/binary_95.jpg) |
 
 *©RainbowSea*
-
-### Gradio UI
-An gradio interface for AniLines is available!
-
-![Gradio UI](./assets/imgs/gradio/gradio.jpg)
-
-Here is a demo on [🤗HuggingFace Space](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Line-Extractor). 
-
-Compared with the demo, local UI allows you to process video and batch files, and presumably faster if you have better machines.
-
-It is much recommended to run locally with your gpu machine, you can simply run the following command to start the UI locally:
-
-```bash
-python app.py
-```
 
 ### Inference acceleration
 By default, AniLines uses `fp16` to accelerate inference, trading marginal performance for a considerable speed boost. You can set `--fp16` to `False` if your GPU does not support it or if you prefer full precision. When using `fp16`, the model runs up to `5 times faster`, as tested with 1080p images.

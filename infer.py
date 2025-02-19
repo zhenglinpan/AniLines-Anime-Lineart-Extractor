@@ -48,16 +48,17 @@ def process_image(path_in, path_out, **kwargs):
     img = cv2.cvtColor(np.array(Image.open(path_in)), cv2.COLOR_RGB2BGR)
     img = inference(img, **kwargs)
     img = Image.fromarray(img)
-    return img.save(path_out)
-
-def process_video(path_in, path_out, **kwargs):
+    img.save(path_out)
+    return img
+    
+def process_video(path_in, path_out, fourcc='mp4v', **kwargs):
     video = cv2.VideoCapture(path_in)
     fps = video.get(cv2.CAP_PROP_FPS)
     width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*fourcc)
     video_out = cv2.VideoWriter(path_out, fourcc, fps, (width, height))
     
     for _ in tqdm(range(total_frames), desc='Processing Video'):
@@ -104,6 +105,15 @@ def inference(img: np.ndarray, model, args):
     
     return np.clip((pred[0, 0].cpu().numpy() * 255) + 0.5, 0, 255).astype(np.uint8)
 
+def do_inference(path_in, path_out, model, args):
+    fname = os.path.basename(path_in)
+    if is_image(fname):
+        process_image(path_in, path_out, model=model, args=args)
+    elif is_video(fname):
+        process_video(path_in, path_out, fourcc='mp4v', model=model, args=args)
+    else:
+        raise ValueError(f'Unsupported file: {path_in}')
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir_in', type=str, default='./input', help='input directory or file')
@@ -124,12 +134,7 @@ def main():
         if not is_file(args.dir_out):
             os.makedirs(args.dir_out, exist_ok=True)
         
-        if is_image(filename):
-            process_image(path_in, path_out, model=model, args=args)
-        elif is_video(filename):
-            process_video(path_in, path_out, model=model, args=args)
-        else:
-            raise ValueError(f'Unsupported file: {filename}')
+        do_inference(path_in, path_out, model, args)
         
 if __name__ == '__main__':
     main()

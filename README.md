@@ -5,12 +5,15 @@
 
 ⭐ **AniLines** is a simple tool to extract lineart from anime images and videos.
 
+[🤗HuggingFace Demo](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Line-Extractor)
+
 ## Contents
 - [Features](#features)
 - [How to use](#how-to-use)
   - [Environment](#environment)
   - [Binarized output](#Binarization)
   - [Inference acceleration](#inference-acceleration)
+  - [Gradio UI](#gradio-ui)
 - [Gallery](#gallery)
 - [Related Works](#related-works)
 - [Acknowledgements](#acknowledgements)
@@ -21,6 +24,8 @@
 ## Updates
 - [x] Init Repo - 2025/02/10
 - [x] Support for video - 2025/02/11
+- [x] Gradio UI and 🤗Huggingface Demo - 2025/02/19 ![Gradio UI](./assets/imgs/gradio/gradio.jpg)
+
 
 ## Features
 ### What does AniLines do?
@@ -90,6 +95,21 @@ Binarized lines are often used in animation production. AniLines provides an API
 | ![Input](./assets/imgs/binarize/input.jpg) | ![No Binarize](./assets/imgs/binarize/no_binary.jpg) | ![Binarize 0.5](./assets/imgs/binarize/binary_50.jpg) | ![Binarize 0.95](./assets/imgs/binarize/binary_95.jpg) |
 
 *©RainbowSea*
+
+### Gradio UI
+An gradio interface for AniLines is available!
+
+![Gradio UI](./assets/imgs/gradio/gradio.jpg)
+
+Here is a demo on [🤗HuggingFace Space](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Line-Extractor). 
+
+Compared with the demo, local UI allows you to process video and batch files, and presumably faster if you have better machines.
+
+It is much recommended to run locally with your gpu machine, you can simply run the following command to start the UI locally:
+
+```bash
+python app.py
+```
 
 ### Inference acceleration
 By default, AniLines uses `fp16` to accelerate inference, trading marginal performance for a considerable speed boost. You can set `--fp16` to `False` if your GPU does not support it or if you prefer full precision. When using `fp16`, the model runs up to `5 times faster`, as tested with 1080p images.

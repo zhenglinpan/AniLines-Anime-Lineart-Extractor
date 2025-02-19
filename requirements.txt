@@ -4,3 +4,4 @@ torchvision
 opencv-python
 pillow
 numpy
+gradio

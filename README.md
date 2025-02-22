@@ -1,11 +1,11 @@
-# AniLines - Anime Line Extractor
+# AniLines - Anime Lineart Extractor
 
 ![Teaser](./assets/gifs/teaser.gif)
 *©Oniichan wa Oshimai!*
 
 ⭐ **AniLines** is a simple tool to extract lineart from anime images and videos.
 
-[🤗HuggingFace Demo](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Line-Extractor)
+[🤗HuggingFace Demo](https://huggingface.co/spaces/aidenpan/AniLines-Anime-Lineart-Extractor)
 
 ## Contents
 - [Features](#features)
@@ -132,7 +132,7 @@ Here are some more examples of AniLines inference results. AniLines is basically
 
 
 ## Related works
-Here are some other anime line extraction projects that you might find interesting:
+Here are some other anime lineart extraction projects that you might find interesting:
 - [MangaLineExtraction](https://github.com/ljsabc/MangaLineExtraction_PyTorch)
 - [Anime2Sketch](https://github.com/Mukosame/Anime2Sketch)
 - [LineDistiller](https://github.com/hepesu/LineDistiller)
@@ -151,11 +151,11 @@ Feel free to cite this work if you find it useful for your research:
 ```bibtex
 @misc{AniLines,
   author = {Zhenglin Pan},
-  title = {AniLines - Anime Line Extractor},
+  title = {AniLines - Anime Lineart Extractor},
   publisher = {GitHub},
   year = {2025},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/zhenglinpan/AniLines-Anime-Line-Extractor}}
+  howpublished = {\url{https://github.com/zhenglinpan/AniLines-Anime-Lineart-Extractor}}
 }
 ```
 

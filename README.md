@@ -21,6 +21,7 @@
 
 
 ## Updates
+- [x] Huggingface space is back online again  - 2025/09/18
 - [x] Init Repo - 2025/02/10
 - [x] Support for video - 2025/02/11
 - [x] Gradio UI and 🤗Huggingface Demo - 2025/02/19 ![Gradio UI](./assets/imgs/gradio/gradio.jpg)

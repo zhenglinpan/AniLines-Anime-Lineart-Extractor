@@ -10,6 +10,7 @@ from infer import process_video as _process_video
 
 # Flag to stop processing
 stop_processing = False
+active_video_args = None
 
 def process_image(image, mode, binarize, threshold, fp16, cpu_checkbox):
     if image is None:
@@ -22,7 +23,9 @@ def process_image(image, mode, binarize, threshold, fp16, cpu_checkbox):
     
     return inference(image, model, args)
 
-def process_video(video_path, mode, binarize, threshold, fp16, cpu_checkbox):
+def process_video(video_path, mode, binarize, threshold, fp16, cpu_checkbox, batch_size):
+    global active_video_args, stop_processing
+    stop_processing = False
     if video_path is None:
         return None
     if not os.path.exists(video_path):
@@ -30,18 +33,36 @@ def process_video(video_path, mode, binarize, threshold, fp16, cpu_checkbox):
     
     binarize_value = threshold if binarize else -1
     device = "cpu" if cpu_checkbox else "cuda"
-    args = argparse.Namespace(mode=mode, binarize=binarize_value, fp16=fp16, device=device)
-    output_path = 'output.webm'  # HACK: temp output
+    actual_batch_size = 1 if cpu_checkbox else int(batch_size)
+    args = argparse.Namespace(mode=mode, binarize=binarize_value, fp16=fp16, device=device, batch_size=actual_batch_size, stop_processing=False)
+    active_video_args = args
+    output_path = 'output.mp4'  # HACK: temp output
     model = load_model(args)
-    _process_video(video_path, output_path, fourcc='vp90', model=model, args=args)
+    try:
+        _process_video(video_path, output_path, fourcc='mp4v', model=model, args=args)
+    except RuntimeError as e:
+        if "cancelled" in str(e):
+            print("Video processing was cancelled.")
+            return None
+        raise e
+    finally:
+        active_video_args = None
+        if 'model' in locals():
+            del model
+        import gc
+        import torch
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     
     return os.path.abspath(output_path)
 
-def process_folder(input_folder, output_folder, mode, binarize, threshold, fp16, cpu_checkbox):
+def process_folder(input_folder, output_folder, mode, binarize, threshold, fp16, cpu_checkbox, batch_size):
     global stop_processing
     binarize_value = threshold if binarize else -1
     device = "cpu" if cpu_checkbox else "cuda"
-    args = argparse.Namespace(mode=mode, binarize=binarize_value, fp16=fp16, device=device)
+    actual_batch_size = 1 if cpu_checkbox else int(batch_size)
+    args = argparse.Namespace(mode=mode, binarize=binarize_value, fp16=fp16, device=device, batch_size=actual_batch_size)
     model = load_model(args)
 
     if not os.path.exists(input_folder):
@@ -59,33 +80,44 @@ def process_folder(input_folder, output_folder, mode, binarize, threshold, fp16,
 
     start_time = time.time()
 
-    for i, file in enumerate(files):
-        if stop_processing:
-            yield "Processing stopped."
-            break
+    try:
+        for i, file in enumerate(files):
+            if stop_processing:
+                yield "Processing stopped."
+                break
 
-        input_path = os.path.join(input_folder, file)
-        output_path = os.path.join(output_folder, file)
+            input_path = os.path.join(input_folder, file)
+            output_path = os.path.join(output_folder, file)
 
-        file_start = time.time() 
-        do_inference(input_path, output_path, model, args)
-        file_end = time.time()
+            file_start = time.time() 
+            do_inference(input_path, output_path, model, args)
+            file_end = time.time()
 
-        elapsed_time = file_end - start_time
-        avg_time_per_file = elapsed_time / (i + 1)
-        remaining_files = total_files - (i + 1)
-        eta = remaining_files * avg_time_per_file
+            elapsed_time = file_end - start_time
+            avg_time_per_file = elapsed_time / (i + 1)
+            remaining_files = total_files - (i + 1)
+            eta = remaining_files * avg_time_per_file
 
-        eta_minutes = int(eta // 60)
-        eta_seconds = int(eta % 60)
+            eta_minutes = int(eta // 60)
+            eta_seconds = int(eta % 60)
 
-        yield f"{i + 1} / {total_files}\tETA: {eta_minutes}m {eta_seconds}s"
+            yield f"{i + 1} / {total_files}\tETA: {eta_minutes}m {eta_seconds}s"
+    finally:
+        if 'model' in locals():
+            del model
+        import gc
+        import torch
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     yield "All Done."
 
 def stop_processing_function():
-    global stop_processing
+    global stop_processing, active_video_args
     stop_processing = True
+    if active_video_args is not None:
+        active_video_args.stop_processing = True
 
 with gr.Blocks() as demo:
     gr.Markdown("# AniLines - Anime Line Extractior")
@@ -120,14 +152,18 @@ with gr.Blocks() as demo:
             with gr.Row():
                 fp16_checkbox = gr.Checkbox(label="Use FP16", value=True)
                 cpu_checkbox = gr.Checkbox(label="Use CPU", value=False)
+                batch_size_number_video = gr.Number(value=1, minimum=1, maximum=16, precision=0, label="Batch Size (GPU only)")
             binarize_checkbox = gr.Checkbox(label="Binarize", value=False)
             binarize_slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.75, label="Binarization Threshold (-1 for auto)", visible=False)
             binarize_checkbox.change(lambda binarize: gr.update(visible=binarize), inputs=binarize_checkbox, outputs=binarize_slider)
 
-            process_button = gr.Button("Process")
+            with gr.Row():
+                process_button = gr.Button("Process")
+                cancel_button = gr.Button("Cancel the process", variant="stop")
             process_button.click(process_video, 
-                                 inputs=[video_input, mode_dropdown, binarize_checkbox, binarize_slider, fp16_checkbox, cpu_checkbox], 
+                                 inputs=[video_input, mode_dropdown, binarize_checkbox, binarize_slider, fp16_checkbox, cpu_checkbox, batch_size_number_video], 
                                  outputs=video_output)
+            cancel_button.click(stop_processing_function, inputs=None, outputs=None)
 
         with gr.Tab("Folder Processing"):
             gr.Markdown("## Process Folder")
@@ -139,6 +175,7 @@ with gr.Blocks() as demo:
             with gr.Row():
                 fp16_checkbox = gr.Checkbox(label="Use FP16", value=True)
                 cpu_checkbox = gr.Checkbox(label="Use CPU", value=False)
+                batch_size_number_folder = gr.Number(value=1, minimum=1, maximum=16, precision=0, label="Batch Size (GPU only)")
             binarize_checkbox = gr.Checkbox(label="Binarize", value=False)
             binarize_slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.75, label="Binarization Threshold (-1 for auto)", visible=False)
             binarize_checkbox.change(lambda binarize: gr.update(visible=binarize), inputs=binarize_checkbox, outputs=binarize_slider)
@@ -146,7 +183,7 @@ with gr.Blocks() as demo:
             process_button_folder = gr.Button("Process Folder")
             stop_button_folder = gr.Button("Kill the process")
             process_button_folder.click(process_folder, 
-                                        inputs=[input_folder, output_folder, mode_dropdown, binarize_checkbox, binarize_slider, fp16_checkbox, cpu_checkbox], 
+                                        inputs=[input_folder, output_folder, mode_dropdown, binarize_checkbox, binarize_slider, fp16_checkbox, cpu_checkbox, batch_size_number_folder], 
                                         outputs=progress, 
                                         show_progress=True)
             stop_button_folder.click(stop_processing_function, inputs=None, outputs=None)

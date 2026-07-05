@@ -1,0 +1,10 @@
+--index-url https://download.pytorch.org/whl/cu132
+--extra-index-url https://pypi.org/simple
+
+torch
+torchvision
+tqdm
+opencv-python
+pillow
+numpy
+gradio

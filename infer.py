@@ -4,6 +4,8 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from PIL import Image, ImageEnhance
+import queue
+import threading
 
 import torch
 from torch.amp import autocast
@@ -52,26 +54,230 @@ def process_image(path_in, path_out, **kwargs):
     return img
     
 def process_video(path_in, path_out, fourcc='mp4v', **kwargs):
+    model = kwargs.get('model')
+    args = kwargs.get('args')
+    
+    device_type = getattr(args, 'device', 'cuda')
+    batch_size = getattr(args, 'batch_size', 1)
+
     video = cv2.VideoCapture(path_in)
     fps = video.get(cv2.CAP_PROP_FPS)
     width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    fourcc = cv2.VideoWriter_fourcc(*fourcc)
-    video_out = cv2.VideoWriter(path_out, fourcc, fps, (width, height))
+    temp_path = path_out + '.tmp.mp4'
+    fourcc_val = cv2.VideoWriter_fourcc(*'mp4v')
+    video_out = cv2.VideoWriter(temp_path, fourcc_val, fps, (width, height))
     
-    for _ in tqdm(range(total_frames), desc='Processing Video'):
-        ret, frame = video.read()
-        if not ret:
-            break
+    read_queue = queue.Queue(maxsize=batch_size * 4)
+    write_queue = queue.Queue(maxsize=batch_size * 4)
+    
+    thread_exceptions = []
+    stop_event = threading.Event()
+    
+    # 1. Reader Thread
+    def reader_worker():
+        try:
+            for _ in range(total_frames):
+                if stop_event.is_set() or getattr(args, 'stop_processing', False):
+                    stop_event.set()
+                    break
+                ret, frame = video.read()
+                if not ret:
+                    break
+                
+                # Preprocess on CPU in reader thread
+                if args.mode == 'basic':
+                    img_proc = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    img_proc = increase_sharpness(img_proc)
+                    tensor = torch.from_numpy(img_proc).permute(2, 0, 1).float() / 255.
+                else:
+                    img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    
+                    sobelx = cv2.Sobel(img_gray, cv2.CV_32F, 1, 0, ksize=3)
+                    sobely = cv2.Sobel(img_gray, cv2.CV_32F, 0, 1, ksize=3)
+                    sobel = cv2.magnitude(sobelx, sobely)
+                    sobel = 255 - cv2.normalize(sobel, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
+                
+                    t_img = torch.from_numpy(img_gray).unsqueeze(0).float() / 255.
+                    t_sobel = torch.from_numpy(sobel).unsqueeze(0).float() / 255.
+                    tensor = torch.cat([t_img, t_sobel], dim=0)
+                
+                # Put with timeout to allow cancellation check
+                while not stop_event.is_set() and not getattr(args, 'stop_processing', False):
+                    try:
+                        read_queue.put(tensor, timeout=0.1)
+                        break
+                    except queue.Full:
+                        continue
+        except Exception as e:
+            thread_exceptions.append(e)
+            stop_event.set()
+        finally:
+            try:
+                read_queue.put(None, timeout=1.0)
+            except queue.Full:
+                pass
+            video.release()
+
+    # 2. Writer Thread
+    def writer_worker():
+        pbar = tqdm(total=total_frames, desc='Processing Video')
+        try:
+            while True:
+                if stop_event.is_set() or getattr(args, 'stop_processing', False):
+                    stop_event.set()
+                    break
+                try:
+                    item = write_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                if item is None:
+                    write_queue.task_done()
+                    break
+                
+                pred_numpy = item.numpy()
+                img_out = np.clip((pred_numpy * 255) + 0.5, 0, 255).astype(np.uint8)
+                img_bgr = cv2.cvtColor(img_out, cv2.COLOR_GRAY2BGR)
+                
+                video_out.write(img_bgr)
+                pbar.update(1)
+                write_queue.task_done()
+        except Exception as e:
+            thread_exceptions.append(e)
+            stop_event.set()
+        finally:
+            video_out.release()
+            pbar.close()
+
+    # Start threads
+    reader_thread = threading.Thread(target=reader_worker, daemon=True)
+    writer_thread = threading.Thread(target=writer_worker, daemon=True)
+    
+    reader_thread.start()
+    writer_thread.start()
+    
+    # 3. Main/Inference Loop on calling thread
+    try:
+        active = True
+        device_type = 'cuda' if 'cuda' in str(args.device) else 'cpu'
+        autocast_enabled = args.fp16 if device_type == 'cuda' else False
+        while active and not stop_event.is_set():
+            if getattr(args, 'stop_processing', False):
+                stop_event.set()
+                break
+            # Gather batch
+            batch_tensors = []
+            for _ in range(batch_size):
+                if stop_event.is_set() or getattr(args, 'stop_processing', False):
+                    active = False
+                    break
+                
+                # Get with timeout to check cancellation flag
+                tensor = None
+                while not stop_event.is_set() and not getattr(args, 'stop_processing', False):
+                    try:
+                        tensor = read_queue.get(timeout=0.1)
+                        break
+                    except queue.Empty:
+                        continue
+                
+                if tensor is None:
+                    active = False
+                    break
+                
+                batch_tensors.append(tensor)
+                read_queue.task_done()
+            
+            if not batch_tensors:
+                break
+                
+            # Perform inference on batch
+            x_in = torch.stack(batch_tensors, dim=0).to(args.device)
+            B, C, H, W = x_in.shape
+            pad_h = 8 - (H % 8)
+            pad_w = 8 - (W % 8)
+            x_in = F.pad(x_in, (0, pad_w, 0, pad_h), mode='reflect')
+            
+            with torch.no_grad(), autocast(enabled=autocast_enabled, device_type=device_type):
+                pred = model(x_in)
+            
+            pred = pred[:, :, :H, :W]
+            
+            if args.binarize != -1:
+                pred = (pred > args.binarize).float()
+                
+            pred_cpu = pred.cpu()
+            
+            for i in range(B):
+                while not stop_event.is_set() and not getattr(args, 'stop_processing', False):
+                    try:
+                        write_queue.put(pred_cpu[i, 0], timeout=0.1)
+                        break
+                    except queue.Full:
+                        continue
+                
+    except Exception as e:
+        thread_exceptions.append(e)
+        stop_event.set()
         
-        img = inference(frame, **kwargs)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        video_out.write(img)
+    reader_thread.join()
+    try:
+        write_queue.put(None, timeout=1.0)
+    except queue.Full:
+        pass
+    writer_thread.join()
+    
+    if thread_exceptions or getattr(args, 'stop_processing', False):
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        if getattr(args, 'stop_processing', False):
+            raise RuntimeError("Processing cancelled by user.")
+        raise thread_exceptions[0]
         
-    video.release()
-    video_out.release()
+    # Convert the temp file to the final destination using ffmpeg
+    import subprocess
+    is_webm = path_out.lower().endswith('.webm')
+    
+    if is_webm:
+        ffmpeg_cmd = [
+            'ffmpeg', '-y',
+            '-i', temp_path,
+            '-c:v', 'libvpx-vp9',
+            '-crf', '30',
+            '-b:v', '0',
+            path_out
+        ]
+    else:
+        ffmpeg_cmd = [
+            'ffmpeg', '-y',
+            '-i', temp_path,
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'fast',
+            path_out
+        ]
+        
+    ffmpeg_success = False
+    try:
+        res = subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if res.returncode == 0:
+            ffmpeg_success = True
+    except FileNotFoundError:
+        pass
+        
+    if ffmpeg_success:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+    else:
+        print("FFmpeg encoding failed. Falling back to raw OpenCV video output.")
+        if os.path.exists(path_out):
+            os.remove(path_out)
+        os.rename(temp_path, path_out)
 
 def inference(img: np.ndarray, model, args):
     if args.mode == 'basic':
@@ -82,8 +288,8 @@ def inference(img: np.ndarray, model, args):
     else:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+        sobelx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=3)
         sobel = cv2.magnitude(sobelx, sobely)
         sobel = 255 - cv2.normalize(sobel, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
     

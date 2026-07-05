@@ -61,7 +61,7 @@ All input images shown above were inferenced at a 1080p resolution. It is also a
 ## How to use
 ### Environment
 
-First, clone this repo, create a new conda environment and install the requirements:
+First, clone this repo, create a new conda environment:
 
 ```bash
 git clone https://github.com/zhenglinpan/AniLines-Anime-Line-Extractor.git
@@ -69,9 +69,29 @@ cd AniLines-Anime-Line-Extractor
 
 conda create -n anilines python=3.12 -y
 conda activate anilines
+```
 
+### Install Dependencies (Choose ONE depending on your hardware)
+
+Check if you have an NVIDIA GPU with CUDA support, and execute **only one** of the options below:
+
+#### Option A: CPU Only (No NVIDIA GPU)
+If you do not have an NVIDIA GPU (or want to run on CPU only), run:
+```bash
 pip install -r requirements.txt
 ```
+
+#### Option B: GPU Accelerated (NVIDIA GPU with CUDA)
+If you have an NVIDIA GPU and want GPU acceleration, run the GPU-specific configuration **instead** of Option A:
+```bash
+# Note: By default, requirements-gpu.txt is configured for CUDA 13.2 (cu132).
+# If your GPU/CUDA drivers are on a different version (such as CUDA 12.1, 12.4, or 11.8), 
+# open requirements-gpu.txt and edit the first line (e.g. change cu132 to cu121 or cu124) before running:
+
+pip install -r requirements-gpu.txt
+```
+
+For more details on installing PyTorch with GPU acceleration for your specific environment, refer to the [PyTorch Official Get Started Guide](https://pytorch.org/get-started/locally/).
 
 Then, download the pre-trained models from the links below and put them in the `./weights` folder
 - [Basic model](https://drive.google.com/file/d/14Bp8mbQAbiR1rQrEsFp-uNdOou8hoCFr/view?usp=sharing)
